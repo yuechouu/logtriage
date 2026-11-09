@@ -18,7 +18,8 @@
 ## 快速开始
 
 ```powershell
-cd E:\workplace\logtriage
+git clone https://github.com/yuechouu/logtriage.git
+cd logtriage
 
 # 不接 LLM，先看效果
 python -m logtriage analyze examples/demo.log --project examples/demo_project --no-llm
