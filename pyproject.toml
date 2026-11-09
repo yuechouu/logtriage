@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logtriage"
+version = "0.1.0"
+description = "日志分析智能体：检测报错、定位项目代码、生成根因报告并通知"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "logtriage contributors" }]
+keywords = ["logging", "triage", "incident", "sre", "llm"]
+dependencies = []
+
+[project.scripts]
+logtriage = "logtriage.cli:main"
+logtriage-agent = "logtriage.cli:main"
+
+[project.optional-dependencies]
+dev = []
+
+[tool.setuptools]
+packages = ["logtriage"]
+
+[tool.setuptools.package-data]
+logtriage = ["data/*.json"]

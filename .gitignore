@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+.logtriage_state.json
+logtriage-state.json
+examples/demo-report.md
+pip-build-*/
+pip-install-*/
+pip-ephem-wheel-cache-*/
+pip-build-tracker-*
+logtriage-alerts.log
+out/

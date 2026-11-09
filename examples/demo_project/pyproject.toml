@@ -1,0 +1,7 @@
+[project]
+name = "demo-order-service"
+version = "1.4.2"
+requires-python = ">=3.11"
+
+[tool.logtriage]
+# 只为让 detect_project_root 找到这个示例项目。

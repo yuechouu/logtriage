@@ -1,0 +1,49 @@
+2026-11-09 10:00:01 INFO [order-api] app - starting order-api version 1.4.2
+2026-11-09 10:00:03 INFO [order-api] app - listening on 0.0.0.0:8080
+2026-11-09 10:01:12 ERROR [order-api] app.orders - failed to calculate order total
+Traceback (most recent call last):
+  File "/srv/demo/app/orders.py", line 23, in calculate_total
+    quantity = int(item["quantity"])
+KeyError: 'quantity'
+2026-11-09 10:01:40 ERROR [order-api] app.orders - failed to calculate order total
+Traceback (most recent call last):
+  File "/srv/demo/app/orders.py", line 23, in calculate_total
+    quantity = int(item["quantity"])
+KeyError: 'quantity'
+2026-11-09 10:02:11 ERROR [order-api] app.payments - payment gateway rejected charge
+Traceback (most recent call last):
+  File "/srv/demo/app/payments.py", line 8, in charge
+    fee = amount * 0.029 + 0.30
+TypeError: unsupported operand type(s) for *: 'decimal.Decimal' and 'float'
+2026-11-09 10:02:44 WARN [order-api] app.db - slow query: 1.82s SELECT * FROM orders WHERE id = ?
+2026-11-09 10:03:05 ERROR [order-api] app.orders - failed to calculate order total
+Traceback (most recent call last):
+  File "/srv/demo/app/orders.py", line 23, in calculate_total
+    quantity = int(item["quantity"])
+KeyError: 'quantity'
+2026-11-09 10:03:45 WARN [order-api] app.pricing - discount code deprecated: SAVE20
+2026-11-09 10:04:10 ERROR [billing] redis - cache connection lost
+RedisConnectionError: Error 111 connecting to cache:6379. Connection refused.
+2026-11-09 10:04:33 ERROR [billing] app.payments - payment gateway rejected charge
+Traceback (most recent call last):
+  File "/srv/demo/app/payments.py", line 8, in charge
+    fee = amount * 0.029 + 0.30
+TypeError: unsupported operand type(s) for *: 'decimal.Decimal' and 'float'
+2026-11-09 10:05:22 ERROR [billing] com.example.payment.PaymentService - payment failed
+java.lang.NullPointerException: Cannot invoke "com.example.user.User.getId()" because "user" is null
+	at com.example.order.OrderService.calculateTotal(OrderService.java:15)
+	at com.example.payment.PaymentService.charge(PaymentService.java:64)
+2026-11-09 10:06:01 ERROR [gateway] node - request failed
+TypeError: Cannot read properties of undefined (reading 'id')
+    at handleRequest (/srv/demo/app/server.js:6:46)
+    at Server.emit (node:events:513:28)
+    at parserOnIncoming (node:_http_server:1123:12)
+2026-11-09 10:06:29 ERROR [gateway] node - request failed
+TypeError: Cannot read properties of undefined (reading 'id')
+    at handleRequest (/srv/demo/app/server.js:6:46)
+    at Server.emit (node:events:513:28)
+    at parserOnIncoming (node:_http_server:1123:12)
+10.0.0.10 - - [09/Nov/2026:10:07:01 +0800] "GET /api/orders/42 HTTP/1.1" 500 218 "-" "curl/8.5.0"
+10.0.0.11 - - [09/Nov/2026:10:07:18 +0800] "POST /api/orders HTTP/1.1" 502 156 "-" "python-requests/2.32.3"
+{"ts": "2026-11-09T10:08:00+08:00", "level": "ERROR", "service": "worker", "message": "job failed", "exception": "ModuleNotFoundError: No module named 'redis'", "stack": "Traceback (most recent call last):\n  File \"/srv/demo/worker/tasks.py\", line 24, in run\n    import redis\nModuleNotFoundError: No module named 'redis'"}
+2026-11-09 10:08:31 INFO [worker] app - retry scheduled in 30s

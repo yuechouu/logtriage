@@ -1,0 +1,1148 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "python-module-not-found",
+      "title": "缺少 Python 依赖或模块名错误",
+      "severity": "high",
+      "tags": ["python", "dependency"],
+      "match": {
+        "exception": "^(ModuleNotFoundError|ImportError)$",
+        "message": "(?i)No module named"
+      },
+      "cause": "解释器在 sys.path 中找不到该模块，通常是依赖未安装、虚拟环境用错，或导入名与安装包名不一致。",
+      "fixes": [
+        "在当前环境执行 pip install 安装缺失依赖，并确认安装目标是正在运行的 Python 解释器。",
+        "核对虚拟环境是否激活，用 python -c 打印 sys.executable 与 sys.path 排查路径差异。",
+        "注意导入名与包名不同（如 Pillow 对应 PIL、PyYAML 对应 yaml）。",
+        "若是本地模块，检查 PYTHONPATH 与启动工作目录是否正确。"
+      ]
+    },
+    {
+      "id": "python-pip-resolution-impossible",
+      "title": "pip 依赖版本冲突无法求解",
+      "severity": "high",
+      "tags": ["python", "dependency"],
+      "match": {
+        "message": "(?i)(ResolutionImpossible|Cannot install .+ because these package versions have conflicting dependencies)"
+      },
+      "cause": "pip 的依赖求解器发现所有候选版本都无法同时满足约束，通常是版本上下界互相冲突，或某个包没有当前平台可用的版本。",
+      "fixes": [
+        "放宽 requirements 中钉死的版本，改用兼容范围后重试。",
+        "先单独安装冲突包并指定版本，定位是哪两个依赖互相排他。",
+        "使用 pip-tools 或 poetry 生成锁文件，让解析结果可复现。",
+        "确认依赖是否有仅支持其它 Python 版本或平台的发布，必要时换源或升级 pip。"
+      ]
+    },
+    {
+      "id": "python-attribute-error",
+      "title": "对象缺少属性（AttributeError）",
+      "severity": "high",
+      "tags": ["python"],
+      "match": {
+        "exception": "^AttributeError$",
+        "message": "(?i)has no attribute"
+      },
+      "cause": "代码访问了对象上不存在的属性，最常见的原因是变量为 None、接口返回结构与预期不符，或依赖升级后属性被移除。",
+      "fixes": [
+        "访问前先判断对象非空，并用 hasattr/getattr 做防御性读取。",
+        "打印 type(obj) 与 dir(obj) 核对实际属性名，排查拼写错误。",
+        "检查第三方库的版本变更说明，确认属性是否已改名或移除。"
+      ]
+    },
+    {
+      "id": "python-key-error",
+      "title": "字典键不存在（KeyError）",
+      "severity": "high",
+      "tags": ["python", "data"],
+      "match": {
+        "exception": "^KeyError$"
+      },
+      "cause": "用不存在的键访问字典或 JSON 解析结果，通常是上游字段缺失、大小写不一致，或数据结构发生了变更。",
+      "fixes": [
+        "改用 dict.get 提供默认值，或用 try/except KeyError 兜底。",
+        "访问前先用 in 判断，并打印实际键集合定位缺失字段。",
+        "对上游数据用 pydantic 或 dataclass 做结构校验，让缺字段尽早暴露。"
+      ]
+    },
+    {
+      "id": "python-value-error",
+      "title": "值不合法（ValueError）",
+      "severity": "high",
+      "tags": ["python", "data"],
+      "match": {
+        "exception": "^ValueError$",
+        "message": "(?i)(invalid literal|not enough values to unpack|too many values to unpack|I/O operation on closed file)"
+      },
+      "cause": "传入的值不满足函数要求，例如字符串转数字失败、解包元素数量不符，或对已关闭的文件继续操作。",
+      "fixes": [
+        "转换前校验输入格式，用 try/except 包裹并记录原始值。",
+        "检查上游数据是否为空串、含空白或单位后缀，先清洗再转换。",
+        "解包时确认返回元素个数与目标一致，必要时用星号收集剩余元素。"
+      ]
+    },
+    {
+      "id": "python-type-error",
+      "title": "参数类型或数量不匹配（TypeError）",
+      "severity": "high",
+      "tags": ["python"],
+      "match": {
+        "exception": "^TypeError$",
+        "message": "(?i)(takes \\d+ positional arguments?|unsupported operand type|is not subscriptable|is not callable|can only concatenate)"
+      },
+      "cause": "调用时的参数类型或个数与函数签名不匹配，常见于 None 参与运算、把 dict/list 当作另一种类型使用。",
+      "fixes": [
+        "核对调用处的实参个数与类型，必要时打印 type() 确认。",
+        "对可能为 None 的返回值先判空，再参与运算或下标访问。",
+        "补充类型注解并接入 mypy，在提交前发现不匹配的调用。"
+      ]
+    },
+    {
+      "id": "python-file-not-found",
+      "title": "文件或目录不存在（FileNotFoundError）",
+      "severity": "high",
+      "tags": ["python", "filesystem"],
+      "match": {
+        "exception": "^FileNotFoundError$",
+        "message": "(?i)(No such file or directory|does not exist)"
+      },
+      "cause": "目标路径不存在，可能是相对路径的基准目录不同、文件被移动或删除，或容器内没有挂载对应目录。",
+      "fixes": [
+        "打印 os.getcwd() 与解析后的绝对路径，确认实际查找位置。",
+        "创建目录用 os.makedirs(..., exist_ok=True)，读取前用 os.path.exists 检查。",
+        "检查容器或服务的工作目录、卷挂载是否与预期一致。"
+      ]
+    },
+    {
+      "id": "python-permission-error",
+      "title": "文件权限不足（PermissionError）",
+      "severity": "high",
+      "tags": ["python", "filesystem"],
+      "match": {
+        "exception": "^(PermissionError|OSError)$",
+        "message": "(?i)(Permission denied|Errno 13)"
+      },
+      "cause": "进程对目标文件或目录缺少读写执行权限，或文件属主与运行用户不一致。",
+      "fixes": [
+        "用 ls -l 查看属主与权限位，按需调整 chmod/chown。",
+        "确认服务实际以哪个用户运行，避免用 root 调试掩盖权限问题。",
+        "容器场景检查 volume 挂载权限与 securityContext。"
+      ]
+    },
+    {
+      "id": "python-network-connection-error",
+      "title": "Python 网络连接被拒绝或超时",
+      "severity": "high",
+      "tags": ["python", "network"],
+      "match": {
+        "exception": "^(ConnectionRefusedError|TimeoutError|socket\\.timeout|asyncio\\.exceptions\\.TimeoutError)$"
+      },
+      "cause": "目标端口没有服务监听、服务尚未启动，或网络与防火墙拦截导致建连超时。",
+      "fixes": [
+        "用 telnet、nc 或 curl 验证目标地址与端口是否可达。",
+        "确认下游服务已启动，并监听 0.0.0.0 而不是仅 127.0.0.1。",
+        "检查安全组、防火墙与 DNS 解析是否正确。",
+        "为客户端设置合理的超时与有限次重试，避免线程被长期占住。"
+      ]
+    },
+    {
+      "id": "python-recursion-error",
+      "title": "递归层级过深（RecursionError）",
+      "severity": "high",
+      "tags": ["python"],
+      "match": {
+        "exception": "^RecursionError$",
+        "message": "(?i)maximum recursion depth"
+      },
+      "cause": "递归没有正确收敛，调用深度超过解释器默认的递归上限。",
+      "fixes": [
+        "检查递归终止条件，确保每次递归问题规模确实在减小。",
+        "用显式栈或迭代改写深层递归。",
+        "确属需要时谨慎调大 sys.setrecursionlimit，并评估栈溢出风险。"
+      ]
+    },
+    {
+      "id": "python-memory-error",
+      "title": "内存不足（MemoryError）",
+      "severity": "critical",
+      "tags": ["python", "memory"],
+      "match": {
+        "exception": "^MemoryError$"
+      },
+      "cause": "进程申请内存失败，通常是数据量过大、一次性读取大文件，或存在内存泄漏。",
+      "fixes": [
+        "改为流式或分块处理，避免一次性把全量数据载入内存。",
+        "用 tracemalloc 或内存分析工具定位持续增长的分配点。",
+        "限制容器内存并配置监控告警，必要时扩容或拆分任务。"
+      ]
+    },
+    {
+      "id": "python-json-or-unicode-decode-error",
+      "title": "JSON 解析或文本解码失败",
+      "severity": "high",
+      "tags": ["python", "data"],
+      "match": {
+        "exception": "^(JSONDecodeError|UnicodeDecodeError)$",
+        "message": "(?i)(Expecting value|Expecting ',' delimiter|Expecting property name|Invalid control character|codec can't decode|invalid start byte|invalid continuation byte|surrogates not allowed)"
+      },
+      "cause": "读取的内容不是合法 JSON，或字节流的编码与声明不一致，常见于接口返回 HTML 错误页、文件编码不匹配。",
+      "fixes": [
+        "打印响应前若干字节与 Content-Type，确认返回的确实是 JSON。",
+        "解析前显式指定 encoding，或用 errors 参数兜底处理脏字节。",
+        "对空响应与接口错误页做前置判断，避免直接进入解析。"
+      ]
+    },
+    {
+      "id": "python-pydantic-validation-error",
+      "title": "pydantic 数据校验失败",
+      "severity": "high",
+      "tags": ["python", "data"],
+      "match": {
+        "exception": "^(pydantic[._a-z]*\\.)?ValidationError$",
+        "message": "(?i)(validation error for|field required|value_error|type_error)"
+      },
+      "cause": "传入数据不符合模型定义的字段、类型或约束，pydantic 在解析阶段直接抛出校验错误。",
+      "fixes": [
+        "打印 ValidationError.errors() 查看具体字段与失败原因。",
+        "对照模型定义修正上游字段名、类型与必填项。",
+        "兼容旧数据时使用 alias、默认值与自定义 validator。"
+      ]
+    },
+    {
+      "id": "python-sqlalchemy-operational-error",
+      "title": "SQLAlchemy 数据库连接失败",
+      "severity": "high",
+      "tags": ["python", "database"],
+      "match": {
+        "exception": "^(sqlalchemy\\.exc\\.)?OperationalError$",
+        "message": "(?i)(could not connect|server closed the connection|Lost connection|connection to server at|SSL connection has been closed)"
+      },
+      "cause": "数据库连接失败，或连接在执行过程中被断开，常见于连接串错误、数据库重启与连接池配置不当。",
+      "fixes": [
+        "核对连接串、账号密码与网络可达性。",
+        "开启连接池 pre_ping 并设置合理的 pool_recycle，避免复用失效连接。",
+        "查看数据库端 max_connections 与超时日志，确认是否被主动断开。"
+      ]
+    },
+    {
+      "id": "python-requests-network-error",
+      "title": "requests 请求失败或 TLS 证书错误",
+      "severity": "high",
+      "tags": ["python", "network", "tls"],
+      "match": {
+        "exception": "^(requests\\.exceptions\\.)?(ConnectionError|SSLError)$",
+        "message": "(?i)(Max retries exceeded|Failed to establish a new connection|certificate verify failed|CERTIFICATE_VERIFY_FAILED|SSL)"
+      },
+      "cause": "requests 无法建立连接，或 TLS 证书校验不通过，常见于目标不可达、代理配置错误与自签证书。",
+      "fixes": [
+        "用 curl -v 复现请求，确认网络与代理设置是否正确。",
+        "生产环境安装正确的 CA 链，不要用 verify=False 全局关闭校验。",
+        "内网自签场景显式指定 verify 证书路径或客户端证书。"
+      ]
+    },
+    {
+      "id": "system-too-many-open-files",
+      "title": "文件句柄耗尽（Too many open files）",
+      "severity": "critical",
+      "tags": ["os", "python", "go"],
+      "match": {
+        "message": "(?i)(Too many open files|EMFILE|Errno 24)"
+      },
+      "cause": "进程打开的 fd 数达到 ulimit -n 上限，通常是文件或连接未关闭、连接池存在泄漏。",
+      "fixes": [
+        "用 lsof -p 指定进程统计句柄类型，定位未关闭的文件或 socket。",
+        "确保 with 或 close 成对出现，检查连接池与 HTTP 客户端是否复用。",
+        "评估后调大 ulimit -n 与 systemd 的 LimitNOFILE，并补充句柄数监控。"
+      ]
+    },
+    {
+      "id": "jvm-null-pointer-exception",
+      "title": "Java 空指针异常（NPE）",
+      "severity": "high",
+      "tags": ["java"],
+      "match": {
+        "exception": "(^|\\.)NullPointerException$"
+      },
+      "cause": "调用了 null 引用的方法或属性，常见于未判空的返回值、自动拆箱与集合元素为 null。",
+      "fixes": [
+        "在调用链关键节点显式判空，或使用 Optional 表达可空语义。",
+        "检查自动拆箱处（Integer 转 int）是否会拿到 null。",
+        "补充日志打印关键对象，并用静态分析工具提前发现潜在 NPE。"
+      ]
+    },
+    {
+      "id": "jvm-class-not-found",
+      "title": "Java 类找不到或类定义缺失",
+      "severity": "high",
+      "tags": ["java", "dependency"],
+      "match": {
+        "exception": "(^|\\.)(ClassNotFoundException|NoClassDefFoundError)$"
+      },
+      "cause": "运行时 classpath 缺少对应类，常见于依赖未打包、provided 作用域误用，或存在版本冲突。",
+      "fixes": [
+        "用 mvn dependency:tree 或 gradle dependencies 排查依赖冲突与缺失。",
+        "确认打包产物（jar/war）中确实包含该类，检查 license 与 shadow 配置。",
+        "核对类名与包名拼写，并确认容器镜像内的依赖完整。"
+      ]
+    },
+    {
+      "id": "jvm-out-of-memory",
+      "title": "JVM 内存溢出（堆或元空间）",
+      "severity": "critical",
+      "tags": ["java", "memory"],
+      "match": {
+        "exception": "(^|\\.)OutOfMemoryError$",
+        "message": "(?i)(Java heap space|GC overhead limit exceeded|Metaspace|PermGen space|unable to create new native thread)"
+      },
+      "cause": "堆内存或元空间不足，常见于一次性加载过多数据、内存泄漏，或容器内存限制小于 -Xmx 设置。",
+      "fixes": [
+        "导出 heap dump 并用 MAT 分析占用最大的对象与引用链。",
+        "合理调大 -Xmx，同时确保容器 memory limit 留出堆外空间。",
+        "检查集合与缓存是否存在无界增长，Metaspace 溢出时排查动态类生成。"
+      ]
+    },
+    {
+      "id": "jvm-stack-overflow",
+      "title": "Java 栈溢出（StackOverflowError）",
+      "severity": "high",
+      "tags": ["java"],
+      "match": {
+        "exception": "(^|\\.)StackOverflowError$"
+      },
+      "cause": "递归过深或方法调用形成无限循环，导致线程调用栈耗尽。",
+      "fixes": [
+        "检查递归终止条件与相互调用的方法链。",
+        "查看堆栈中重复出现的帧，定位循环调用点。",
+        "必要时改为迭代实现，并谨慎调整 -Xss 线程栈大小。"
+      ]
+    },
+    {
+      "id": "jvm-unsupported-class-version",
+      "title": "JDK 版本与字节码不兼容",
+      "severity": "high",
+      "tags": ["java", "version"],
+      "match": {
+        "exception": "(^|\\.)UnsupportedClassVersionError$",
+        "message": "(?i)(class file version|compiled by a more recent version)"
+      },
+      "cause": "编译产物的字节码版本高于运行环境 JDK，运行时报不支持该类文件版本。",
+      "fixes": [
+        "用 javap -v 查看 class 文件的 major version，换算所需 JDK。",
+        "升级运行环境 JDK，或在编译时降低 target 版本。",
+        "统一构建镜像与运行镜像中的 JDK 版本。"
+      ]
+    },
+    {
+      "id": "jvm-no-such-method",
+      "title": "运行时缺少方法或字段（依赖冲突）",
+      "severity": "high",
+      "tags": ["java", "dependency"],
+      "match": {
+        "exception": "(^|\\.)(NoSuchMethodError|NoSuchFieldError|AbstractMethodError)$"
+      },
+      "cause": "编译期存在的方法或字段在运行期不存在，通常是同一依赖存在多个版本，实际加载到了旧版本。",
+      "fixes": [
+        "用 mvn dependency:tree 排查重复依赖并排除旧版本。",
+        "统一各模块的依赖版本管理，重新打包部署。",
+        "清理本地仓库缓存与容器内旧 jar，避免残留类干扰。"
+      ]
+    },
+    {
+      "id": "jvm-sql-exception",
+      "title": "SQL 执行失败（SQLException）",
+      "severity": "high",
+      "tags": ["java", "database"],
+      "match": {
+        "exception": "(^|\\.)SQLException$"
+      },
+      "cause": "SQL 执行失败，可能是连接不可用、语法错误、约束冲突或锁等待超时，需结合 SQLState 与 vendor code 判断。",
+      "fixes": [
+        "查看完整堆栈中的 SQLState 与错误码，定位具体失败类型。",
+        "核对该时间点数据库的连通性、连接池状态与慢查询日志。",
+        "检查 SQL 语法、表结构与约束，锁等待场景设置合理超时与重试。"
+      ]
+    },
+    {
+      "id": "jvm-hikari-pool-timeout",
+      "title": "HikariCP 获取连接超时",
+      "severity": "high",
+      "tags": ["java", "database"],
+      "match": {
+        "message": "(?i)(HikariPool-\\d+.*Connection is not available|Connection is not available, request timed out)"
+      },
+      "cause": "连接池中的连接全部被占用或数据库不可达，调用方在 connectionTimeout 内拿不到连接。",
+      "fixes": [
+        "检查是否存在长事务或连接泄漏，用 metrics 观察活跃连接数。",
+        "确认数据库端 max_connections 上限后再调整 maximumPoolSize。",
+        "查看数据库会话数、慢查询与网络状况，排除数据库侧阻塞。"
+      ]
+    },
+    {
+      "id": "db-deadlock",
+      "title": "数据库死锁",
+      "severity": "high",
+      "tags": ["database", "mysql", "postgresql"],
+      "match": {
+        "message": "(?i)(Deadlock found when trying to get lock|deadlock detected|DeadlockDetectedException|ER_LOCK_DEADLOCK|SQLSTATE\\[40001\\])"
+      },
+      "cause": "两个及以上事务互相持有对方需要的锁，数据库检测到后回滚其中一方。",
+      "fixes": [
+        "统一多表更新顺序，避免交叉加锁。",
+        "缩短事务范围，事务内不要做远程调用等耗时操作。",
+        "对高冲突行使用 SELECT ... FOR UPDATE 或乐观锁，并为死锁增加重试。"
+      ]
+    },
+    {
+      "id": "node-econnrefused",
+      "title": "Node.js 连接被拒绝（ECONNREFUSED）",
+      "severity": "high",
+      "tags": ["node", "network"],
+      "match": {
+        "message": "(?i)\\bECONNREFUSED\\b"
+      },
+      "cause": "目标主机拒绝连接，通常是服务未启动、端口写错，或只监听了本机回环地址。",
+      "fixes": [
+        "确认目标服务进程存在并监听预期端口。",
+        "用 nc 或 curl 从应用所在机器验证端口可达性。",
+        "容器内注意服务要绑定 0.0.0.0，而不是 127.0.0.1。"
+      ]
+    },
+    {
+      "id": "node-etimedout",
+      "title": "Node.js 请求超时（ETIMEDOUT）",
+      "severity": "high",
+      "tags": ["node", "network"],
+      "match": {
+        "message": "(?i)\\b(ETIMEDOUT|ESOCKETTIMEDOUT)\\b"
+      },
+      "cause": "建立连接或等待响应超时，常见于网络链路不通、目标过载或防火墙静默丢包。",
+      "fixes": [
+        "检查网络链路、安全组与目标服务负载。",
+        "为请求设置明确的 timeout 与有限次重试。",
+        "排查是否存在 DNS 解析缓慢导致的整体超时。"
+      ]
+    },
+    {
+      "id": "node-module-not-found",
+      "title": "Node.js 模块未找到",
+      "severity": "high",
+      "tags": ["node", "dependency"],
+      "match": {
+        "message": "(?i)(ERR_MODULE_NOT_FOUND|Cannot find module '[^']+')"
+      },
+      "cause": "依赖未安装、node_modules 不完整，或 ESM 导入路径缺少扩展名与 exports 配置。",
+      "fixes": [
+        "重新执行 npm ci 或 pnpm install，并提交 lockfile 保证可复现。",
+        "检查 package.json 是否声明了该依赖，以及是否装在生产依赖中。",
+        "ESM 项目补全 .js 扩展名，或核对包的 exports 字段。"
+      ]
+    },
+    {
+      "id": "js-undefined-property",
+      "title": "JS 读取 undefined/null 的属性",
+      "severity": "high",
+      "tags": ["node", "javascript"],
+      "match": {
+        "message": "(?i)(Cannot read propert(y|ies) of (undefined|null)|Cannot read property '[^']+' of undefined|undefined is not an object|is not a function)"
+      },
+      "cause": "访问的对象为 undefined 或 null，常见于异步数据尚未返回、字段名写错，或缺少可选链保护。",
+      "fixes": [
+        "使用可选链与空值合并，为可能为空的对象提供默认值。",
+        "确认数据加载完成后再访问嵌套字段。",
+        "打印对象结构或加类型定义，核对实际字段名。"
+      ]
+    },
+    {
+      "id": "node-heap-out-of-memory",
+      "title": "Node.js 堆内存溢出",
+      "severity": "critical",
+      "tags": ["node", "memory"],
+      "match": {
+        "message": "(?i)(JavaScript heap out of memory|Reached heap limit|FATAL ERROR: Reached heap|Allocation failed - JavaScript heap)"
+      },
+      "cause": "Node 进程堆内存超过默认上限，常见于一次处理大 JSON、数组无界增长或内存泄漏。",
+      "fixes": [
+        "用 --max-old-space-size 适当调大堆上限。",
+        "改为流式处理大文件与大响应，避免整块载入内存。",
+        "用 heap snapshot 对比定位持续增长的对象。"
+      ]
+    },
+    {
+      "id": "node-unhandled-rejection",
+      "title": "未处理的 Promise 拒绝",
+      "severity": "high",
+      "tags": ["node", "async"],
+      "match": {
+        "message": "(?i)(UnhandledPromiseRejection|Unhandled promise rejection)"
+      },
+      "cause": "Promise 抛出的异常没有被 catch，Node.js 新版本默认会因此终止进程。",
+      "fixes": [
+        "为所有 Promise 链补 catch，或用 try/catch 包裹 await 调用。",
+        "注册 process.on('unhandledRejection') 记录日志并做兜底处理。",
+        "检查回调式 API 中的异步异常是否被正确传递。"
+      ]
+    },
+    {
+      "id": "node-elifecycle",
+      "title": "npm 脚本执行失败（ELIFECYCLE）",
+      "severity": "medium",
+      "tags": ["node", "npm"],
+      "match": {
+        "message": "(?i)\\bELIFECYCLE\\b"
+      },
+      "cause": "npm run 调用的脚本以非 0 退出码结束，npm 用 ELIFECYCLE 标记这次失败。",
+      "fixes": [
+        "查看 ELIFECYCLE 之前的真实报错行，那才是根因。",
+        "在本地单独执行该脚本命令复现并修复。",
+        "检查构建环境变量、依赖是否完整安装以及脚本路径。"
+      ]
+    },
+    {
+      "id": "node-eaddrinuse",
+      "title": "端口已被占用（EADDRINUSE）",
+      "severity": "high",
+      "tags": ["node", "network"],
+      "match": {
+        "message": "(?i)(EADDRINUSE|Address already in use|Only one usage of each socket address)"
+      },
+      "cause": "监听端口已被其它进程占用，或上一个实例尚未完全退出。",
+      "fixes": [
+        "用 ss -lptn 或 lsof -i 找到占用端口的进程并处理。",
+        "修改服务监听端口，或确认没有重复启动多个实例。",
+        "检查进程优雅退出逻辑，避免重启期间端口未释放。"
+      ]
+    },
+    {
+      "id": "go-nil-pointer-panic",
+      "title": "Go 运行时 panic（空指针等）",
+      "severity": "critical",
+      "tags": ["go", "panic"],
+      "match": {
+        "message": "(?i)(panic: runtime error|invalid memory address or nil pointer dereference)"
+      },
+      "cause": "解引用了 nil 指针或触发越界等运行时致命错误，且没有被 recover 捕获。",
+      "fixes": [
+        "查看 panic 后的 goroutine 堆栈，定位具体文件与行号。",
+        "对可能为 nil 的指针、map 与接口值先判空再使用。",
+        "在 goroutine 顶层加 recover 并记录堆栈，避免进程整体退出。"
+      ]
+    },
+    {
+      "id": "go-context-timeout",
+      "title": "Go 请求超时（context 或 I/O）",
+      "severity": "high",
+      "tags": ["go", "network"],
+      "match": {
+        "message": "(?i)(context deadline exceeded|i/o timeout)"
+      },
+      "cause": "请求超过了 context 的截止时间，或底层网络读写超时。",
+      "fixes": [
+        "检查下游响应时间与超时阈值是否设置过小。",
+        "使用带超时的 context 并沿调用链正确传递。",
+        "排查网络、DNS 与连接池等待对总耗时的影响。"
+      ]
+    },
+    {
+      "id": "go-data-race",
+      "title": "Go 数据竞争（DATA RACE）",
+      "severity": "high",
+      "tags": ["go", "concurrency"],
+      "match": {
+        "message": "(?i)WARNING: DATA RACE"
+      },
+      "cause": "多个 goroutine 未加同步地并发读写同一变量。",
+      "fixes": [
+        "用 go test -race 复现并查看两侧冲突的读写栈。",
+        "用 mutex 或 channel 保护共享状态，避免直接共享可变结构。",
+        "尽量通过消息传递而非共享内存来组织并发。"
+      ]
+    },
+    {
+      "id": "dotnet-null-reference",
+      "title": ".NET 空引用异常",
+      "severity": "high",
+      "tags": ["dotnet"],
+      "match": {
+        "exception": "(^|\\.)NullReferenceException$"
+      },
+      "cause": "访问了 null 对象的成员，常见于未初始化的字段、查询结果为空或依赖注入未注册。",
+      "fixes": [
+        "启用可空引用类型并处理编译器警告。",
+        "使用 ?. 与空合并运算符，在边界处校验参数。",
+        "检查查询结果与 DI 容器是否返回了 null。"
+      ]
+    },
+    {
+      "id": "dotnet-invalid-operation",
+      "title": ".NET 对象状态或已释放异常",
+      "severity": "high",
+      "tags": ["dotnet"],
+      "match": {
+        "exception": "(^|\\.)(InvalidOperationException|ObjectDisposedException)$",
+        "message": "(?i)(Collection was modified|object is currently in use|Cannot access a disposed object|Sequence contains no elements|The operation is not valid)"
+      },
+      "cause": "对象处于不允许当前操作的状态，例如遍历集合时修改集合，或在 Dispose 之后继续使用对象。",
+      "fixes": [
+        "遍历集合时不要增删元素，先物化副本再修改。",
+        "用 using 管理对象生命周期，避免跨线程复用已释放对象。",
+        "对可能为空的序列先判断 Any() 再取 First()。"
+      ]
+    },
+    {
+      "id": "dotnet-sql-exception",
+      "title": ".NET 数据库访问异常（SqlException）",
+      "severity": "high",
+      "tags": ["dotnet", "database"],
+      "match": {
+        "exception": "(^|\\.)(SqlException|Microsoft\\.Data\\.SqlClient\\.SqlException)$",
+        "message": "(?i)(A network-related or instance-specific error|Login failed for user|timeout period elapsed|Cannot open database|Invalid object name)"
+      },
+      "cause": "数据库连接失败、登录失败，或 SQL 执行超时与对象名错误。",
+      "fixes": [
+        "核对连接字符串、账号权限与数据库实例是否在线。",
+        "检查网络与端口连通性，必要时调整连接池与重试。",
+        "设置合理的 CommandTimeout，并优化慢查询与缺失索引。"
+      ]
+    },
+    {
+      "id": "dotnet-stack-overflow",
+      "title": ".NET 栈溢出",
+      "severity": "high",
+      "tags": ["dotnet"],
+      "match": {
+        "exception": "(^|\\.)StackOverflowException$"
+      },
+      "cause": "递归过深或无限递归导致调用栈耗尽，.NET 中通常无法被捕获恢复。",
+      "fixes": [
+        "检查递归终止条件，必要时改为迭代实现。",
+        "避免属性 getter 之间互相调用形成循环。",
+        "为深层数据处理改用显式栈结构。"
+      ]
+    },
+    {
+      "id": "mysql-access-denied-1045",
+      "title": "MySQL 认证失败（1045）",
+      "severity": "high",
+      "tags": ["mysql", "database"],
+      "match": {
+        "message": "(?i)(Access denied for user '[^']+'@'[^']+'|ER_ACCESS_DENIED_ERROR|\\b1045\\b.*Access denied)"
+      },
+      "cause": "用户名或密码错误、账号不存在，或该来源主机没有被授权访问。",
+      "fixes": [
+        "核对账号密码，并确认授权主机（user@host）与实际来源匹配。",
+        "用 mysql 客户端手动登录验证，排除应用侧配置被覆盖。",
+        "检查账号是否已过期、被锁定或需要 SSL 连接。"
+      ]
+    },
+    {
+      "id": "mysql-cant-connect-2003",
+      "title": "MySQL 无法连接（2003）",
+      "severity": "high",
+      "tags": ["mysql", "database"],
+      "match": {
+        "message": "(?i)(Can't connect to MySQL server|Lost connection to MySQL server|\\b2003\\b.*Can't connect)"
+      },
+      "cause": "客户端无法连接到 MySQL 服务，可能是服务未启动、端口不通，或 bind-address 限制了访问来源。",
+      "fixes": [
+        "确认 mysqld 进程运行并监听 3306 端口。",
+        "检查 bind-address 配置与防火墙、安全组规则。",
+        "容器或云数据库场景确认网络互通与白名单设置。"
+      ]
+    },
+    {
+      "id": "mysql-duplicate-entry-1062",
+      "title": "MySQL 唯一键冲突（1062）",
+      "severity": "medium",
+      "tags": ["mysql", "database"],
+      "match": {
+        "message": "(?i)(Duplicate entry '[^']*' for key|ER_DUP_ENTRY)"
+      },
+      "cause": "插入或更新违反了唯一索引约束，目标键值已存在。",
+      "fixes": [
+        "改用 INSERT ... ON DUPLICATE KEY UPDATE，或先查询后写入。",
+        "检查业务侧是否存在重复提交与并发写入。",
+        "核对唯一索引定义是否符合预期，必要时调整索引。"
+      ]
+    },
+    {
+      "id": "postgresql-relation-not-exist",
+      "title": "PostgreSQL 表或关系不存在",
+      "severity": "high",
+      "tags": ["postgresql", "database"],
+      "match": {
+        "message": "(?i)(relation \"[^\"]+\" does not exist|UndefinedTable|42P01)"
+      },
+      "cause": "表或视图不存在，或 search_path 指向了错误的 schema。",
+      "fixes": [
+        "确认对象所在 schema，并在 SQL 中显式加 schema 前缀。",
+        "检查 search_path 与连接用户的默认 schema。",
+        "确认迁移脚本已在目标环境执行，注意未加引号的标识符会转小写。"
+      ]
+    },
+    {
+      "id": "postgresql-permission-denied",
+      "title": "PostgreSQL 权限不足",
+      "severity": "high",
+      "tags": ["postgresql", "database"],
+      "match": {
+        "message": "(?i)(permission denied for (table|relation|sequence|schema|database)|SQLSTATE 42501|InsufficientPrivilege)"
+      },
+      "cause": "当前连接角色对目标对象没有相应权限，或 schema 缺少 USAGE 授权。",
+      "fixes": [
+        "用 GRANT 为实际使用的角色授予所需权限。",
+        "确认连接使用的是哪个角色，避免用管理员账号调试掩盖问题。",
+        "检查 schema 的 USAGE 权限与默认权限设置。"
+      ]
+    },
+    {
+      "id": "postgresql-too-many-connections",
+      "title": "PostgreSQL 连接数超限",
+      "severity": "high",
+      "tags": ["postgresql", "database"],
+      "match": {
+        "message": "(?i)(remaining connection slots are reserved|too many clients already|too many connections)"
+      },
+      "cause": "数据库连接数达到 max_connections 上限，新连接被拒绝。",
+      "fixes": [
+        "检查应用连接池配置与是否存在连接泄漏。",
+        "评估调大 max_connections，并用 PgBouncer 做连接复用。",
+        "清理空闲会话，排查长时间未提交的事务。"
+      ]
+    },
+    {
+      "id": "oracle-table-not-exist",
+      "title": "Oracle 表或视图不存在（ORA-00942）",
+      "severity": "high",
+      "tags": ["oracle", "database"],
+      "match": {
+        "message": "(?i)ORA-00942"
+      },
+      "cause": "表或视图不存在、当前用户无权访问，或同义词尚未创建。",
+      "fixes": [
+        "确认对象所在 schema 并在 SQL 中加前缀。",
+        "检查是否缺少 SELECT 等对象权限。",
+        "核对大小写与引号用法，未加引号的标识符会按大写解析。"
+      ]
+    },
+    {
+      "id": "oracle-listener-connection",
+      "title": "Oracle 监听或连接超时",
+      "severity": "high",
+      "tags": ["oracle", "database"],
+      "match": {
+        "message": "(?i)ORA-(12541|12170)"
+      },
+      "cause": "监听器未启动或端口不可达（ORA-12541），或客户端与服务器之间的网络连接超时（ORA-12170）。",
+      "fixes": [
+        "在数据库服务器上检查 lsnrctl status 与监听端口。",
+        "核对连接串中的主机、端口与服务名。",
+        "排查防火墙、安全组与网络链路是否存在丢包。"
+      ]
+    },
+    {
+      "id": "oracle-shared-pool-oom",
+      "title": "Oracle 共享池内存不足（ORA-04031）",
+      "severity": "critical",
+      "tags": ["oracle", "memory"],
+      "match": {
+        "message": "(?i)ORA-04031"
+      },
+      "cause": "共享池无法分配连续内存，常见于硬解析过多、共享池偏小或存在游标泄漏。",
+      "fixes": [
+        "检查是否大量未使用绑定变量导致硬解析，改用绑定变量。",
+        "评估后适当调大 shared_pool_size 或 SGA 目标。",
+        "排查会话中是否有未关闭的游标与异常增长的对象。"
+      ]
+    },
+    {
+      "id": "redis-noauth",
+      "title": "Redis 未认证（NOAUTH）",
+      "severity": "high",
+      "tags": ["redis", "database"],
+      "match": {
+        "message": "(?i)\\bNOAUTH\\b"
+      },
+      "cause": "Redis 实例开启了认证，但客户端没有提供密码或密码为空。",
+      "fixes": [
+        "在客户端配置 requirepass 对应的认证密码。",
+        "检查连接串、配置中心与环境变量是否覆盖了密码。",
+        "确认使用的是正确的 ACL 用户与权限。"
+      ]
+    },
+    {
+      "id": "redis-wrongtype",
+      "title": "Redis 键类型不匹配（WRONGTYPE）",
+      "severity": "medium",
+      "tags": ["redis", "database"],
+      "match": {
+        "message": "(?i)WRONGTYPE Operation against a key"
+      },
+      "cause": "对键执行了与其数据类型不匹配的命令，例如对字符串键使用哈希命令。",
+      "fixes": [
+        "用 TYPE 命令查看键的实际类型。",
+        "统一同一业务键读写的命令族与数据结构。",
+        "避免多个服务复用同名键，必要时加业务前缀隔离。"
+      ]
+    },
+    {
+      "id": "redis-oom-or-misconf",
+      "title": "Redis 内存超限或持久化配置错误",
+      "severity": "critical",
+      "tags": ["redis", "database"],
+      "match": {
+        "message": "(?i)(OOM command not allowed|MISCONF Redis is configured to save RDB)"
+      },
+      "cause": "达到 maxmemory 且淘汰策略禁止写入，或 RDB 持久化失败被置为保护状态。",
+      "fixes": [
+        "评估并调整 maxmemory-policy，清理无用键或扩容。",
+        "修复磁盘空间与目录权限，使 BGSAVE 能正常完成。",
+        "确认 AOF/RDB 目录可写，必要时评估 stop-writes-on-bgsave-error 的风险。"
+      ]
+    },
+    {
+      "id": "mongodb-topology-closed",
+      "title": "MongoDB 连接失败或拓扑已关闭",
+      "severity": "high",
+      "tags": ["mongodb", "database"],
+      "match": {
+        "message": "(?i)(MongoNetworkError|MongoServerSelectionError|Server selection timed out|Topology \\S+ closed)"
+      },
+      "cause": "驱动无法连接到 MongoDB 节点，常见于节点不可达、副本集名称错误或选主超时。",
+      "fixes": [
+        "核对连接串、副本集名称与认证信息。",
+        "用 rs.status() 确认节点状态与主节点。",
+        "排查网络与防火墙，并设置合理的 serverSelectionTimeoutMS。"
+      ]
+    },
+    {
+      "id": "http-400-bad-request",
+      "title": "请求参数错误（HTTP 400）",
+      "severity": "medium",
+      "tags": ["http", "gateway"],
+      "match": {
+        "http_status": [400]
+      },
+      "cause": "请求参数缺失、格式错误或超出允许范围，服务端拒绝处理。",
+      "fixes": [
+        "对照接口文档核对必填字段与取值格式。",
+        "检查 Content-Type 与 JSON 结构是否与接口约定一致。",
+        "在网关或应用日志中定位具体的校验失败字段。"
+      ]
+    },
+    {
+      "id": "http-401-403-auth",
+      "title": "认证失败或权限不足（HTTP 401/403）",
+      "severity": "high",
+      "tags": ["http", "auth"],
+      "match": {
+        "http_status": [401, 403]
+      },
+      "cause": "401 表示未携带或携带了失效凭证，403 表示身份有效但无权访问该资源。",
+      "fixes": [
+        "检查 token 是否过期、请求头格式是否正确。",
+        "确认账号角色与该资源的访问权限配置。",
+        "核对网关鉴权规则与白名单，排查代理是否丢失认证头。"
+      ]
+    },
+    {
+      "id": "http-404-not-found",
+      "title": "接口或资源不存在（HTTP 404）",
+      "severity": "medium",
+      "tags": ["http", "gateway"],
+      "match": {
+        "http_status": [404]
+      },
+      "cause": "请求路径错误、路由未注册，或目标资源已被删除。",
+      "fixes": [
+        "核对 URL 前缀、版本号与路径参数。",
+        "检查网关路由与后端服务的注册状态。",
+        "确认资源 ID 确实存在，避免把 404 误判为权限问题。"
+      ]
+    },
+    {
+      "id": "http-408-429-timeout-throttle",
+      "title": "请求超时或触发限流（HTTP 408/429）",
+      "severity": "medium",
+      "tags": ["http", "throttling"],
+      "match": {
+        "http_status": [408, 429]
+      },
+      "cause": "408 表示客户端请求超时，429 表示短时间内请求过多触发了服务端限流。",
+      "fixes": [
+        "429 时按 Retry-After 退避重试，并降低并发与请求速率。",
+        "408 时检查网络质量、请求体大小与客户端超时设置。",
+        "评估限流阈值是否合理，必要时为关键调用申请更高配额。"
+      ]
+    },
+    {
+      "id": "http-500-internal-error",
+      "title": "服务端内部错误（HTTP 500）",
+      "severity": "high",
+      "tags": ["http", "gateway"],
+      "match": {
+        "http_status": [500]
+      },
+      "cause": "服务端处理请求时抛出未捕获异常，或依赖调用失败导致整体返回 500。",
+      "fixes": [
+        "根据请求时间与 traceId 在服务端日志中定位异常堆栈。",
+        "补充异常捕获与统一错误响应，避免把内部细节直接透出。",
+        "为该接口补充监控与告警，便于快速发现同类错误。"
+      ]
+    },
+    {
+      "id": "http-502-503-504-gateway",
+      "title": "网关或上游服务不可用（HTTP 502/503/504）",
+      "severity": "critical",
+      "tags": ["http", "gateway"],
+      "match": {
+        "http_status": [502, 503, 504]
+      },
+      "cause": "网关无法从上游拿到有效响应（502）、上游不可用或过载（503），或上游响应超时（504）。",
+      "fixes": [
+        "检查上游服务实例健康状态与副本数量。",
+        "核对网关的超时、重试与负载均衡配置。",
+        "查看上游日志与线程池、连接池是否被打满。"
+      ]
+    },
+    {
+      "id": "k8s-oomkilled",
+      "title": "容器因内存超限被杀死（OOMKilled）",
+      "severity": "critical",
+      "tags": ["kubernetes", "container"],
+      "match": {
+        "message": "(?i)OOMKilled"
+      },
+      "cause": "容器内存使用超过 limits.memory，被内核 OOM killer 杀死，退出码通常为 137。",
+      "fixes": [
+        "用 kubectl describe pod 查看 Last State 与退出码确认原因。",
+        "调大 resources.limits.memory，或修复应用内存泄漏。",
+        "JVM 场景确保 -Xmx 明显小于容器内存上限。"
+      ]
+    },
+    {
+      "id": "k8s-crashloopbackoff",
+      "title": "容器反复重启（CrashLoopBackOff）",
+      "severity": "critical",
+      "tags": ["kubernetes", "container"],
+      "match": {
+        "message": "(?i)CrashLoopBackOff"
+      },
+      "cause": "容器启动后反复退出，kubelet 按退避策略不断重启。",
+      "fixes": [
+        "用 kubectl logs --previous 查看上一次退出前的日志。",
+        "检查启动命令、配置挂载与依赖服务是否就绪。",
+        "用 kubectl describe 查看退出码与事件，区分 OOM 与业务崩溃。"
+      ]
+    },
+    {
+      "id": "k8s-image-pull-failed",
+      "title": "镜像拉取失败（ImagePullBackOff）",
+      "severity": "high",
+      "tags": ["kubernetes", "container"],
+      "match": {
+        "message": "(?i)(ImagePullBackOff|ErrImagePull)"
+      },
+      "cause": "镜像不存在、仓库认证失败，或节点到镜像仓库网络不通。",
+      "fixes": [
+        "核对镜像名与 tag 是否拼写正确且已推送。",
+        "配置正确的 imagePullSecrets 并确认凭据未过期。",
+        "检查节点到镜像仓库的网络、代理与证书信任。"
+      ]
+    },
+    {
+      "id": "k8s-probe-failed",
+      "title": "存活或就绪探针失败",
+      "severity": "high",
+      "tags": ["kubernetes", "healthcheck"],
+      "match": {
+        "message": "(?i)(Liveness probe failed|Readiness probe failed|Startup probe failed)"
+      },
+      "cause": "健康检查接口失败，可能是路径或端口配置错误、应用启动过慢，或依赖不可用。",
+      "fixes": [
+        "核对探针的 path、port 与实际服务监听是否一致。",
+        "适当增加 initialDelaySeconds、timeoutSeconds 与 failureThreshold。",
+        "检查应用启动日志与依赖服务可用性，避免探针把慢启动误判为失败。"
+      ]
+    },
+    {
+      "id": "k8s-evicted",
+      "title": "Pod 被节点驱逐（Evicted）",
+      "severity": "high",
+      "tags": ["kubernetes", "container"],
+      "match": {
+        "message": "(?i)(Evicted|The node was low on resource|ephemeral-storage)"
+      },
+      "cause": "节点内存或磁盘资源不足，kubelet 按驱逐策略终止 Pod。",
+      "fixes": [
+        "查看节点 pressure 状态与 Pod 的资源请求、限制。",
+        "清理节点磁盘、镜像与日志，恢复可用空间。",
+        "设置合理的 requests/limits 与 PriorityClass，保护关键服务。"
+      ]
+    },
+    {
+      "id": "system-no-space-left",
+      "title": "磁盘空间不足",
+      "severity": "critical",
+      "tags": ["os", "disk"],
+      "match": {
+        "message": "(?i)(No space left on device|Disk quota exceeded|ENOSPC)"
+      },
+      "cause": "磁盘分区或 inode 已耗尽，无法写入新的文件与数据。",
+      "fixes": [
+        "用 df -h 与 df -i 定位是空间还是 inode 用尽。",
+        "清理日志、临时文件与旧镜像，配置日志轮转。",
+        "为磁盘使用率配置监控告警，必要时扩容。"
+      ]
+    },
+    {
+      "id": "system-process-crash-or-killed",
+      "title": "进程崩溃或被系统杀死",
+      "severity": "critical",
+      "tags": ["os", "process"],
+      "match": {
+        "message": "(?i)(Segmentation fault|core dumped|SIGKILL|signal 9|exit code 137|OOM killer|Out of memory: Kill|Killed process)"
+      },
+      "cause": "进程访问非法内存而崩溃（段错误），或被内核 OOM killer 与 SIGKILL 强制终止，退出码常见 137。",
+      "fixes": [
+        "用 dmesg 查看是否触发 OOM killer 并确认被杀进程。",
+        "开启 core dump 并用 gdb 分析崩溃调用栈。",
+        "检查容器内存限制与进程资源配额，修复内存泄漏。"
+      ]
+    },
+    {
+      "id": "system-connection-reset",
+      "title": "连接被重置或管道断开",
+      "severity": "high",
+      "tags": ["network", "os"],
+      "match": {
+        "message": "(?i)(Connection reset by peer|Broken pipe|ECONNRESET|EPIPE)"
+      },
+      "cause": "对端异常关闭了连接，或向已经关闭的 socket 继续写数据。",
+      "fixes": [
+        "增加心跳与自动重连机制，避免复用失效长连接。",
+        "写之前检查连接状态，并捕获 EPIPE 做降级处理。",
+        "排查对端超时设置、重启与连接池空闲回收策略。"
+      ]
+    },
+    {
+      "id": "tls-certificate-error",
+      "title": "TLS 证书校验失败",
+      "severity": "high",
+      "tags": ["tls", "certificate", "node"],
+      "match": {
+        "message": "(?i)(certificate verify failed|CERTIFICATE_VERIFY_FAILED|certificate has expired|certificate is not yet valid|hostname mismatch|Hostname/IP does not match|unable to get local issuer certificate|self[- ]signed certificate|ERR_OSSL_[A-Z0-9_]+|UNABLE_TO_VERIFY_LEAF_SIGNATURE|SELF_SIGNED_CERT_IN_CHAIN|CERT_HAS_EXPIRED)"
+      },
+      "cause": "证书过期、自签名、域名与证书 SAN 不匹配，或客户端信任库缺少中间 CA。",
+      "fixes": [
+        "用 openssl s_client -showcerts 检查证书链与有效期。",
+        "安装完整的 CA 链或把自签 CA 加入信任库。",
+        "核对访问域名与证书 SAN 是否一致，避免用 IP 直连。"
+      ]
+    },
+    {
+      "id": "dns-resolution-failure",
+      "title": "域名解析失败（DNS）",
+      "severity": "high",
+      "tags": ["dns", "network"],
+      "match": {
+        "message": "(?i)(NXDOMAIN|SERVFAIL|no such host|Name or service not known|Temporary failure in name resolution|getaddrinfo ENOTFOUND|EAI_AGAIN)"
+      },
+      "cause": "域名不存在（NXDOMAIN）、DNS 服务器故障（SERVFAIL），或解析请求超时。",
+      "fixes": [
+        "用 dig 或 nslookup 验证域名解析结果。",
+        "检查 /etc/resolv.conf 与集群内 CoreDNS 状态。",
+        "确认服务名与命名空间拼写正确，必要时临时用 IP 验证。"
+      ]
+    },
+    {
+      "id": "filesystem-permission-or-locked",
+      "title": "文件权限不足、被占用或只读",
+      "severity": "high",
+      "tags": ["os", "filesystem"],
+      "match": {
+        "message": "(?i)(Permission denied|Operation not permitted|being used by another process|Read-only file system|Text file busy|EBUSY|EROFS)"
+      },
+      "cause": "进程缺少目标文件权限、文件正被其它进程占用，或文件系统以只读方式挂载。",
+      "fixes": [
+        "检查文件属主与权限位，按需调整 chmod/chown。",
+        "用 lsof 定位占用文件的进程，停止后再操作。",
+        "检查挂载参数与磁盘状态，排除只读挂载与磁盘故障。"
+      ]
+    },
+    {
+      "id": "clock-skew",
+      "title": "系统时间不同步导致校验失败",
+      "severity": "medium",
+      "tags": ["os", "time"],
+      "match": {
+        "message": "(?i)(clock skew|RequestTimeTooSkewed|Signature expired|timestamp .* out of range|time difference .* too large)"
+      },
+      "cause": "客户端与服务器时间偏差过大，导致签名、令牌或证书的有效期校验失败。",
+      "fixes": [
+        "启用 NTP 或 chrony 同步时间并检查同步状态。",
+        "核对容器时区与宿主机时间是否一致。",
+        "为签名与令牌校验预留合理的时间窗口，避免临界抖动。"
+      ]
+    },
+    {
+      "id": "kafka-topic-or-offset",
+      "title": "Kafka 主题或 offset 异常",
+      "severity": "high",
+      "tags": ["kafka", "mq"],
+      "match": {
+        "message": "(?i)(OffsetOutOfRange|offset out of range|UnknownTopicOrPartition|UNKNOWN_TOPIC_OR_PART)"
+      },
+      "cause": "消费位点超出消息保留范围，或主题、分区不存在。",
+      "fixes": [
+        "按业务需要把 offset 重置为 earliest 或 latest。",
+        "核对主题名、分区数与自动建主题配置。",
+        "检查账号对主题的读写权限与消息保留时长。"
+      ]
+    },
+    {
+      "id": "kafka-rebalance-or-lag",
+      "title": "Kafka 消费组重平衡或积压过大",
+      "severity": "medium",
+      "tags": ["kafka", "mq"],
+      "match": {
+        "message": "(?i)(rebalanc(e|ing) in progress|The group is rebalancing|consumer lag [0-9]{4,}|LAG[ =:]+[0-9]{4,})"
+      },
+      "cause": "消费组成员变动频繁触发重平衡，或消费速度长期落后于生产速度导致积压。",
+      "fixes": [
+        "适当调大 session.timeout.ms 与 max.poll.interval.ms，减少非必要重平衡。",
+        "优化单条消息处理耗时，或增加消费者实例与分区数。",
+        "监控 consumer lag 并配置积压告警，必要时临时扩容。"
+      ]
+    },
+    {
+      "id": "version-incompatible",
+      "title": "版本不兼容或接口版本不匹配",
+      "severity": "high",
+      "tags": ["version", "compatibility"],
+      "match": {
+        "message": "(?i)(incompatible version|version mismatch|requires version|unsupported version|API version .* not supported|is not compatible with|requires at least version)"
+      },
+      "cause": "客户端与服务端、依赖库与运行时之间的版本不匹配，接口或数据格式不兼容。",
+      "fixes": [
+        "统一客户端与服务端的版本，核对升级说明中的破坏性变更。",
+        "检查依赖锁文件，避免同一库存在多个版本。",
+        "在 CI 中固定版本矩阵，并对接口做兼容性测试。"
+      ]
+    },
+    {
+      "id": "config-missing",
+      "title": "配置项或环境变量缺失",
+      "severity": "high",
+      "tags": ["config"],
+      "match": {
+        "message": "(?i)(missing required environment variable|Missing required config|config(uration)? (key|item|option) .* not found|environment variable .* is not set|required key .* not found)"
+      },
+      "cause": "应用启动或运行期读取的必填配置没有提供，环境变量、配置文件或 ConfigMap 缺失。",
+      "fixes": [
+        "核对 .env、配置文件与部署清单中的键名与层级。",
+        "在启动时校验必填配置并给出明确的缺失项报错。",
+        "避免用默认值掩盖缺失配置，区分开发与生产配置来源。"
+      ]
+    }
+  ]
+}
